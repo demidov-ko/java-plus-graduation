@@ -90,11 +90,11 @@ spring:
 
         # ---------- Stat: статистика просмотров ----------
         - id: stat-hit
-          uri: lb://stat-server
+          uri: lb://stats-server
           predicates:
             - Path=/hit
         - id: stat-stats
-          uri: lb://stat-server
+          uri: lb://stats-server
           predicates:
             - Path=/stats/**
       globalcors:
