@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: stat-server
+  config:
+    import: "configserver:"
+  cloud:
+    config:
+      discovery:
+        enabled: true          # ищем config-server в реестре
+        service-id: config-server
+      fail-fast: true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000
+        multiplier: 1.1
+        max-interval: 2000
+
+server:
+  port: 0
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    registry-fetch-interval-seconds: 5
+  instance:
+    instance-id: ${spring.application.name}:${random.value}
