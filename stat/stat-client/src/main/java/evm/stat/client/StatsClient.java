@@ -53,6 +53,7 @@ public class StatsClient extends BaseClient {
                 .queryParam("unique", unique)
                 .queryParam("uris", uris != null ? uris : List.of())
                 .build(false)
+                .encode()
                 .toUriString();
         return getList(makeUri(path), ViewStatsDto[].class);
     }

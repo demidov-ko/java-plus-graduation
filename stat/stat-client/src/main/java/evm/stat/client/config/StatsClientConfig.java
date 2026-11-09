@@ -16,7 +16,7 @@ public class StatsClientConfig {
     @ConditionalOnMissingBean   //для подмены бина моком в тестах
     public StatsClient statsClient(DiscoveryClient discoveryClient,
                                    RetryTemplate retryTemplate,
-                                   @Value("${stats.service.id:stat-server}") String statsServiceId) {
+                                   @Value("${stats.service.id:stats-server}") String statsServiceId) {
         return new StatsClient(discoveryClient, retryTemplate, statsServiceId);
     }
 

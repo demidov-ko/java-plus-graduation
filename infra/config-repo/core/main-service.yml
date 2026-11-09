@@ -16,3 +16,7 @@ spring:
   sql:
     init:
       mode: always
+
+stats:
+  service:
+    id: stats-server
