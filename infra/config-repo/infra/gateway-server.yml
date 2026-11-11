@@ -1,0 +1,101 @@
+server:
+  port: 8080
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, gateway
+  endpoint:
+    gateway:
+      enabled: true
+
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        # ---------- Admin: зона администратора ----------
+        # GET-маршруты с Retry
+        - id: admin-read
+          uri: lb://main-service
+          predicates:
+            - Path=/admin/users,/admin/events,/admin/categories,/admin/compilations
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 3
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+        # Все остальные (POST/PATCH/DELETE)
+        - id: admin-change
+          uri: lb://main-service
+          predicates:
+            - Path=/admin/**
+
+        # ---------- Private: зона авторизованного пользователя ----------
+        - id: private-read
+          uri: lb://main-service
+          predicates:
+            - Path=/users/*/events,/users/*/events/*,/users/*/requests
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 3
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+        - id: private-change
+          uri: lb://main-service
+          predicates:
+            - Path=/users/**
+
+        # ---------- Public: публичная зона ----------
+        - id: public-read
+          uri: lb://main-service
+          predicates:
+            - Path=/categories/**,/compilations/**,/events/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 3
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        # ---------- Stat: статистика просмотров ----------
+        - id: stat-hit
+          uri: lb://stats-server
+          predicates:
+            - Path=/hit
+        - id: stat-stats
+          uri: lb://stats-server
+          predicates:
+            - Path=/stats/**
+      globalcors:
+        add-to-simple-url-handler-mapping: true

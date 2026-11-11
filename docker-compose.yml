@@ -1,7 +1,8 @@
 services:
   stats-server:
-    build: stat/stat-server
-    image: stat-server
+    build: stat/stats-server
+    image: stats-server
+    profiles: [ "full" ]
     ports:
       - "9090:9090"
     depends_on:
@@ -30,6 +31,7 @@ services:
   ewm-service:
     build: main-service
     image: ewm-service
+    profiles: [ "full" ]
     ports:
       - "8080:8080"
     depends_on:
@@ -43,6 +45,7 @@ services:
 
   ewm-db:
     image: postgres:16.1
+    container_name: postgres-ewm-db
     ports:
       - "6542:5432"
     environment:

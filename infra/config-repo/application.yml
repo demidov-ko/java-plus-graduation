@@ -1,0 +1,16 @@
+# Тут хранятся настройки, которые относятся ко всей системе
+# или могут переиспользоваться несколькими подсистемами
+
+spring:
+  main:
+    banner-mode: off
+    log-startup-info: false
+
+logging:
+  level:
+    org.apache.kafka: WARN
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
