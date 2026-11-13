@@ -14,7 +14,19 @@
 
     <modules>
         <module>main-service</module>
+        <module>user-service</module>
+        <module>common-api</module>
     </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>ru.practicum</groupId>
+                <artifactId>common-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <!--    <properties>-->
 <!--        <maven.compiler.source>21</maven.compiler.source>-->

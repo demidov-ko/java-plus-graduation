@@ -18,12 +18,38 @@ spring:
         locator:
           enabled: false
       routes:
+        # ------------- Для отдельных сервисов -----------
+          # -------- User Service -------
+        - id: users-read
+          uri: lb://user-service
+          predicates:
+            - Path=/admin/users/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 3
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        - id: user-change
+          uri: lb://user-service
+          predicates:
+            - Path=/admin/users/**
         # ---------- Admin: зона администратора ----------
         # GET-маршруты с Retry
         - id: admin-read
           uri: lb://main-service
           predicates:
-            - Path=/admin/users,/admin/events,/admin/categories,/admin/compilations
+#            - Path=/admin/users,/admin/events,/admin/categories,/admin/compilations
+            - Path=/admin/events,/admin/categories,/admin/compilations
             - Method=GET
           filters:
             - name: Retry
