@@ -1,4 +1,4 @@
-package evm.main.users.dto;
+package evm.main.event.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserShortDto {
-
     private Long id;
     private String name;
 }

@@ -1,15 +1,14 @@
 package evm.main.event.mapper;
 
-
 import evm.main.category.mapper.CategoryMapper;
 import evm.main.category.model.Category;
 import evm.main.event.dto.EventFullDto;
 import evm.main.event.dto.EventShortDto;
 import evm.main.event.dto.NewEventDto;
+import evm.main.event.dto.UserShortDto;
 import evm.main.event.model.Event;
 import evm.main.event.model.EventState;
-import evm.main.users.mapper.UserMapper;
-import evm.main.users.model.User;
+import ru.yandex.practicum.common.UserDto;
 
 import java.time.LocalDateTime;
 
@@ -18,13 +17,13 @@ public class EventMapper {
     private EventMapper() {
     }
 
-    public static Event toEntity(NewEventDto dto, Category category, User initiator) {
+    public static Event toEntity(NewEventDto dto, Category category, Long initiatorId) {
         return Event.builder()
                 .annotation(dto.getAnnotation())
                 .category(category)
                 .description(dto.getDescription())
                 .eventDate(dto.getEventDate())
-                .initiator(initiator)
+                .initiatorId(initiatorId)
                 .location(LocationMapper.toEntity(dto.getLocation()))
                 .paid(dto.getPaid())
                 .participantLimit(dto.getParticipantLimit())
@@ -36,14 +35,15 @@ public class EventMapper {
     }
 
     // Краткая информация о событии
-    public static EventShortDto toShortDto(Event event, Long views, Long confirmedRequests) {
+    public static EventShortDto toShortDto(Event event, UserShortDto initiator,
+                                           Long views, Long confirmedRequests) {
         return EventShortDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
                 .category(CategoryMapper.toDto(event.getCategory()))
                 .confirmedRequests(confirmedRequests)
                 .eventDate(event.getEventDate())
-                .initiator(UserMapper.toShortDto(event.getInitiator()))
+                .initiator(initiator)
                 .paid(event.getPaid())
                 .title(event.getTitle())
                 .views(views)
@@ -51,7 +51,8 @@ public class EventMapper {
     }
 
     // Полная информация о событии
-    public static EventFullDto toFullDto(Event event, Long views, Long confirmedRequests) {
+    public static EventFullDto toFullDto(Event event, UserShortDto initiator,
+                                         Long views, Long confirmedRequests) {
         return EventFullDto.builder()
                 .id(event.getId())
                 .annotation(event.getAnnotation())
@@ -60,7 +61,7 @@ public class EventMapper {
                 .createdOn(event.getCreatedOn())
                 .description(event.getDescription())
                 .eventDate(event.getEventDate())
-                .initiator(UserMapper.toShortDto(event.getInitiator()))
+                .initiator(initiator)
                 .location(LocationMapper.toDto(event.getLocation()))
                 .paid(event.getPaid())
                 .participantLimit(event.getParticipantLimit())
@@ -69,6 +70,16 @@ public class EventMapper {
                 .state(event.getState())
                 .title(event.getTitle())
                 .views(views)
+                .build();
+    }
+
+    public static UserShortDto toUserShortDto(UserDto user) {
+        if (user == null) {
+            return null;
+        }
+        return UserShortDto.builder()
+                .id(user.getId())
+                .name(user.getName())
                 .build();
     }
 }

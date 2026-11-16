@@ -1,7 +1,6 @@
 package evm.main.comment.model;
 
 import evm.main.event.model.Event;
-import evm.main.users.model.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -30,10 +29,8 @@ public class Comment {
     @Column(name = "edited_on")
     private LocalDateTime editedOn;
 
-    @ToString.Exclude
-    @JoinColumn(name = "author_id", nullable = false)
-    @ManyToOne(fetch = FetchType.LAZY)
-    private User author;
+    @Column(name = "author_id", nullable = false)
+    private Long authorId;   // id автора в user-service
 
     @ToString.Exclude
     @JoinColumn(name = "event_id", nullable = false)

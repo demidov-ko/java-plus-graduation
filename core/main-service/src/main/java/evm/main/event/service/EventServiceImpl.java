@@ -2,6 +2,7 @@ package evm.main.event.service;
 
 import evm.main.category.model.Category;
 import evm.main.category.repository.CategoryRepository;
+import evm.main.client.UserGateway;
 import evm.main.event.dto.*;
 import evm.main.event.mapper.EventMapper;
 import evm.main.event.mapper.LocationMapper;
@@ -18,8 +19,6 @@ import evm.main.requests.mapper.RequestMapper;
 import evm.main.requests.model.Request;
 import evm.main.requests.model.Status;
 import evm.main.requests.repository.RequestRepositoryJpa;
-import evm.main.users.model.User;
-import evm.main.users.repository.UserRepositoryJpa;
 import evm.stat.client.StatsClient;
 import evm.stat.dto.HitDto;
 import evm.stat.dto.ViewStatsDto;
@@ -32,11 +31,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.common.UserDto;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -49,7 +50,7 @@ public class EventServiceImpl implements EventService {
     private static final int MIN_HOURS_BEFORE_EVENT_ADMIN = 1;
 
     private final EventRepository eventRepository;
-    private final UserRepositoryJpa userRepository;
+    private final UserGateway userGateway;
     private final CategoryRepository categoryRepository;
     private final RequestRepositoryJpa requestRepository;
     private final RequestMapper mapper;
@@ -96,12 +97,14 @@ public class EventServiceImpl implements EventService {
                     .collect(Collectors.toList());
         }
 
-        // Получаем статистику и количество заявок для всех событий разом
+        // Статистика и инициаторы для всех событий разом
         Map<Long, Long> viewsMap = getViewsMap(events);
+        Map<Long, UserShortDto> initiatorsMap = getInitiatorsMap(events);
 
         List<EventShortDto> result = events.stream()
                 .map(e -> EventMapper.toShortDto(
                         e,
+                        initiatorsMap.get(e.getInitiatorId()),
                         viewsMap.getOrDefault(e.getId(), 0L),
                         confirmedMap.getOrDefault(e.getId(), 0L)))
                 .collect(Collectors.toList());
@@ -127,7 +130,7 @@ public class EventServiceImpl implements EventService {
         Long views = getViews(event);
         Long confirmed = requestRepository.countByEventIdAndStatus(id, Status.CONFIRMED);
 
-        return EventMapper.toFullDto(event, views, confirmed);
+        return EventMapper.toFullDto(event, getInitiator(event.getInitiatorId()), views, confirmed);
     }
 
 // =========================================================================
@@ -137,7 +140,8 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<EventShortDto> getUserEvents(Long userId, Integer from, Integer size) {
-        checkUserExists(userId);
+        UserShortDto initiator = EventMapper.toUserShortDto(userGateway.getUser(userId));
+
         Pageable pageable = PageRequest.of(from / size, size);
         List<Event> events = eventRepository.findAllByInitiatorId(userId, pageable);
 
@@ -147,6 +151,7 @@ public class EventServiceImpl implements EventService {
         return events.stream()
                 .map(e -> EventMapper.toShortDto(
                         e,
+                        initiator,
                         viewsMap.getOrDefault(e.getId(), 0L),
                         confirmedMap.getOrDefault(e.getId(), 0L)))
                 .collect(Collectors.toList());
@@ -158,41 +163,41 @@ public class EventServiceImpl implements EventService {
         // Проверяем что дата события не раньше чем через 2 часа
         validateEventDate(dto.getEventDate(), MIN_HOURS_BEFORE_EVENT_USER);
 
-        User user = getUserOrThrow(userId);
+        UserDto user = userGateway.getUser(userId);
         Category category = getCategoryOrThrow(dto.getCategory());
 
-        Event event = EventMapper.toEntity(dto, category, user);
+        Event event = EventMapper.toEntity(dto, category, user.getId());
         Event saved = eventRepository.save(event);
 
-        return EventMapper.toFullDto(saved, 0L, 0L);
+        return EventMapper.toFullDto(saved, EventMapper.toUserShortDto(user), 0L, 0L);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventFullDto getUserEventById(Long userId, Long eventId) {
-        checkUserExists(userId);
+        UserDto user = userGateway.getUser(userId);
         Event event = getEventOrThrow(eventId);
 
         // Пользователь может видеть только своё событие
-        if (!event.getInitiator().getId().equals(userId)) {
+        if (!event.getInitiatorId().equals(userId)) {
             throw new NotFoundException("Событие с id=" + eventId + " не найдено");
         }
 
         Long views = getViews(event);
         Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
 
-        return EventMapper.toFullDto(event, views, confirmed);
+        return EventMapper.toFullDto(event, EventMapper.toUserShortDto(user), views, confirmed);
     }
 
     @Override
     @Transactional
     public EventFullDto updateUserEvent(Long userId, Long eventId,
                                         UpdateEventUserRequest dto) {
-        checkUserExists(userId);
+        UserDto user = userGateway.getUser(userId);
         Event event = getEventOrThrow(eventId);
 
         // Пользователь может редактировать только своё событие
-        if (!event.getInitiator().getId().equals(userId)) {
+        if (!event.getInitiatorId().equals(userId)) {
             throw new NotFoundException("Событие с id=" + eventId + " не найдено");
         }
 
@@ -207,7 +212,7 @@ public class EventServiceImpl implements EventService {
         Event saved = eventRepository.save(event);
         Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
 
-        return EventMapper.toFullDto(saved, getViews(saved), confirmed);
+        return EventMapper.toFullDto(saved, EventMapper.toUserShortDto(user), getViews(saved), confirmed);
     }
 
     @Override
@@ -216,7 +221,7 @@ public class EventServiceImpl implements EventService {
         checkUserExists(userId);
         Event event = getEventOrThrow(eventId);
 
-        if (!event.getInitiator().getId().equals(userId)) {
+        if (!event.getInitiatorId().equals(userId)) {
             throw new NotFoundException("Событие с id=" + eventId + " не найдено");
         }
 
@@ -233,7 +238,7 @@ public class EventServiceImpl implements EventService {
         Event event = getEventOrThrow(eventId);
 
         // Проверка прав организатора
-        if (!event.getInitiator().getId().equals(userId)) {
+        if (!event.getInitiatorId().equals(userId)) {
             throw new NotFoundException("Событие с id=" + eventId + " не найдено");
         }
 
@@ -345,10 +350,12 @@ public class EventServiceImpl implements EventService {
 
         Map<Long, Long> viewsMap = getViewsMap(events);
         Map<Long, Long> confirmedMap = getConfirmedRequestsMap(events);
+        Map<Long, UserShortDto> initiatorsMap = getInitiatorsMap(events);
 
         return events.stream()
                 .map(e -> EventMapper.toFullDto(
                         e,
+                        initiatorsMap.get(e.getInitiatorId()),
                         viewsMap.getOrDefault(e.getId(), 0L),
                         confirmedMap.getOrDefault(e.getId(), 0L)))
                 .collect(Collectors.toList());
@@ -365,7 +372,7 @@ public class EventServiceImpl implements EventService {
         Event saved = eventRepository.save(event);
         Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
 
-        return EventMapper.toFullDto(saved, getViews(saved), confirmed);
+        return EventMapper.toFullDto(saved, getInitiator(saved.getInitiatorId()), getViews(saved), confirmed);
     }
 
 // =========================================================================
@@ -438,6 +445,26 @@ public class EventServiceImpl implements EventService {
                         row -> (Long) row[0], // event_id
                         row -> (Long) row[1] // count
                 ));
+    }
+
+    // Инициаторы для списка событий: один запрос в user-service
+    // Возвращает Map: userId → краткая информация о пользователе
+    private Map<Long, UserShortDto> getInitiatorsMap(List<Event> events) {
+        Set<Long> ids = events.stream()
+                .map(Event::getInitiatorId)
+                .collect(Collectors.toSet());
+
+        return userGateway.getUsersMap(ids).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> EventMapper.toUserShortDto(e.getValue())
+                ));
+    }
+
+    // Инициатор одного события (null, если пользователь не найден)
+    private UserShortDto getInitiator(Long initiatorId) {
+        return EventMapper.toUserShortDto(
+                userGateway.getUsersMap(List.of(initiatorId)).get(initiatorId));
     }
 
     // Применяет изменения из запроса пользователя к событию
@@ -526,11 +553,6 @@ public class EventServiceImpl implements EventService {
         }
     }
 
-    private User getUserOrThrow(Long userId) {
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Пользователь с id=" + userId + " не найден"));
-    }
-
     private Event getEventOrThrow(Long eventId) {
         return eventRepository.findById(eventId)
                 .orElseThrow(() -> new NotFoundException("Событие с id=" + eventId + " не найдено"));
@@ -542,8 +564,6 @@ public class EventServiceImpl implements EventService {
     }
 
     private void checkUserExists(Long userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new NotFoundException("Пользователь с id=" + userId + " не найден");
-        }
+        userGateway.getUser(userId);
     }
 }

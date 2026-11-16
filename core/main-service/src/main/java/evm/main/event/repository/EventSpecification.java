@@ -23,7 +23,7 @@ public class EventSpecification {
 
             // Фильтр по пользователям
             if (users != null && !users.isEmpty()) {
-                predicates.add(root.get("initiator").get("id").in(users));
+                predicates.add(root.get("initiatorId").in(users));
             }
 
             // Фильтр по статусам

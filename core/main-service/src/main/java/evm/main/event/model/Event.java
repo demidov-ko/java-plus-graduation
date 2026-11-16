@@ -1,7 +1,6 @@
 package evm.main.event.model;
 
 import evm.main.category.model.Category;
-import evm.main.users.model.User;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,9 +25,8 @@ public class Event {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;    // категория события (много событий под одной категорией)
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "initiator_id", nullable = false)
-    private User initiator;   // инициатор события
+    @Column(name = "initiator_id", nullable = false)
+    private Long initiatorId;   // id инициатора в user-service
 
     @Column(nullable = false, length = 7000)
     private String description; // полное описание

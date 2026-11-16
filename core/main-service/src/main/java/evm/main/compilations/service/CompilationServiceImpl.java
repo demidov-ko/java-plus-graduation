@@ -1,5 +1,6 @@
 package evm.main.compilations.service;
 
+import evm.main.client.UserGateway;
 import evm.main.compilations.dto.CompilationDto;
 import evm.main.compilations.dto.NewCompilationDto;
 import evm.main.compilations.dto.UpdateCompilationRequest;
@@ -7,6 +8,7 @@ import evm.main.compilations.mapper.CompilationMapper;
 import evm.main.compilations.model.Compilation;
 import evm.main.compilations.repository.CompilationRepository;
 import evm.main.event.dto.EventShortDto;
+import evm.main.event.dto.UserShortDto;
 import evm.main.event.mapper.EventMapper;
 import evm.main.event.model.Event;
 import evm.main.event.repository.EventRepository;
@@ -26,7 +28,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.transaction.annotation.Transactional;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -37,6 +38,7 @@ public class CompilationServiceImpl implements CompilationService {
     private final EventRepository eventRepository;
     private final RequestRepositoryJpa requestRepository;
     private final StatsClient statsClient;
+    private final UserGateway userGateway;
 
     @Override
     @Transactional
@@ -106,9 +108,7 @@ public class CompilationServiceImpl implements CompilationService {
             compilations = compilationRepository.findAllByPinned(pinned, pageable);
         }
 
-        return compilations.stream()
-                .map(this::buildCompilationDto)
-                .toList();
+        return buildCompilationDtos(compilations);
     }
 
     @Override
@@ -129,26 +129,39 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     private CompilationDto buildCompilationDto(Compilation compilation) {
+        return buildCompilationDtos(List.of(compilation)).get(0);
+    }
 
-        List<Event> events =
-                new ArrayList<>(compilation.getEvents());
+    // Собирает DTO сразу для списка подборок: события всех подборок обрабатываются вместе,
+    // поэтому на любой список уходит по одному запросу в статистику, в БД заявок и в user-service
+    private List<CompilationDto> buildCompilationDtos(List<Compilation> compilations) {
 
-        Map<Long, Long> viewsMap =
-                getViewsMap(events);
+        // Все события всех подборок без дублей (одно событие может быть в нескольких подборках)
+        Map<Long, Event> eventsById = new HashMap<>();
+        compilations.forEach(c ->
+                c.getEvents().forEach(e -> eventsById.putIfAbsent(e.getId(), e)));
+        List<Event> events = new ArrayList<>(eventsById.values());
 
-        Map<Long, Long> confirmedMap =
-                getConfirmedRequestsMap(events);
+        Map<Long, Long> viewsMap = getViewsMap(events);
+        Map<Long, Long> confirmedMap = getConfirmedRequestsMap(events);
+        Map<Long, UserShortDto> initiatorsMap = getInitiatorsMap(events);
 
-        List<EventShortDto> eventDtos =
-                events.stream()
-                        .map(event ->
-                                EventMapper.toShortDto(
-                                        event,
-                                        viewsMap.getOrDefault(event.getId(), 0L),
-                                        confirmedMap.getOrDefault(event.getId(), 0L)))
-                        .toList();
+        Map<Long, EventShortDto> eventDtosById = events.stream()
+                .collect(Collectors.toMap(
+                        Event::getId,
+                        event -> EventMapper.toShortDto(
+                                event,
+                                initiatorsMap.get(event.getInitiatorId()),
+                                viewsMap.getOrDefault(event.getId(), 0L),
+                                confirmedMap.getOrDefault(event.getId(), 0L))));
 
-        return CompilationMapper.toDto(compilation, eventDtos);
+        return compilations.stream()
+                .map(c -> CompilationMapper.toDto(
+                        c,
+                        c.getEvents().stream()
+                                .map(e -> eventDtosById.get(e.getId()))
+                                .toList()))
+                .toList();
     }
 
     private Map<Long, Long> getViewsMap(List<Event> events) {
@@ -206,5 +219,17 @@ public class CompilationServiceImpl implements CompilationService {
                         row -> (Long) row[0],
                         row -> (Long) row[1]
                 ));
+    }
+
+    // Инициаторы всех событий одним запросом в user-service
+    private Map<Long, UserShortDto> getInitiatorsMap(List<Event> events) {
+        Set<Long> ids = events.stream()
+                .map(Event::getInitiatorId)
+                .collect(Collectors.toSet());
+
+        return userGateway.getUsersMap(ids).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> EventMapper.toUserShortDto(e.getValue())));
     }
 }

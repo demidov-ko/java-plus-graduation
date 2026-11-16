@@ -1,10 +1,10 @@
--- Пользователи
-CREATE TABLE IF NOT EXISTS users (
-    id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name  VARCHAR(250) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    CONSTRAINT uq_user_email UNIQUE (email)
-);
+---- Пользователи
+--CREATE TABLE IF NOT EXISTS users (
+--    id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+--    name  VARCHAR(250) NOT NULL,
+--    email VARCHAR(255) NOT NULL,
+--    CONSTRAINT uq_user_email UNIQUE (email)
+--);
 
 -- Категории событий
 CREATE TABLE IF NOT EXISTS categories (
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS events (
     category_id        BIGINT        NOT NULL REFERENCES categories (id),
     description        VARCHAR(7000) NOT NULL,
     event_date         TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    initiator_id       BIGINT        NOT NULL REFERENCES users (id),
+    initiator_id       BIGINT        NOT NULL,
     lat                FLOAT,
     lon                FLOAT,
     paid               BOOLEAN       NOT NULL DEFAULT FALSE,
@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS participation_requests (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_id     BIGINT      NOT NULL REFERENCES events (id),
-    requester_id BIGINT      NOT NULL REFERENCES users (id),
+    requester_id BIGINT      NOT NULL,
     status       VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     created      TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     CONSTRAINT uq_request UNIQUE (event_id, requester_id)
@@ -109,6 +109,6 @@ CREATE TABLE IF NOT EXISTS comments (
     text           VARCHAR(4000) NOT NULL,
     published_date TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     edited_on      TIMESTAMP WITHOUT TIME ZONE,
-    author_id      BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    author_id      BIGINT NOT NULL,
     event_id       BIGINT NOT NULL REFERENCES events (id) ON DELETE CASCADE
 );

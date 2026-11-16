@@ -4,7 +4,6 @@ import evm.main.event.model.Event;
 import evm.main.requests.dto.ParticipationRequestDto;
 import evm.main.requests.model.Request;
 import evm.main.requests.model.Status;
-import evm.main.users.model.User;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -14,12 +13,11 @@ public class RequestMapper {
     private RequestMapper() {
     }
 
-    public Request mapToRequest(User user, Event event) {
-
+    public Request mapToRequest(Long requesterId, Event event) {
         Request request = new Request();
         request.setCreated(LocalDateTime.now());
         request.setStatus(Status.PENDING);
-        request.setRequester(user);
+        request.setRequesterId(requesterId);
         request.setEvent(event);
 
         return request;
@@ -30,7 +28,7 @@ public class RequestMapper {
         return ParticipationRequestDto.builder()
                 .id(request.getId())
                 .event(request.getEvent().getId())
-                .requester(request.getRequester().getId())
+                .requester(request.getRequesterId())
                 .created(request.getCreated())
                 .status(request.getStatus().name())
                 .build();
