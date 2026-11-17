@@ -2,7 +2,7 @@ package ru.yandex.practicum.user.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.common.UserDto;
+import ru.yandex.practicum.common.user.UserDto;
 import ru.yandex.practicum.user.service.UserService;
 
 import java.util.List;

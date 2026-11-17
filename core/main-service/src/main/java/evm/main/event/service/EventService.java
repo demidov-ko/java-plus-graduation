@@ -5,6 +5,7 @@ import evm.main.requests.dto.EventRequestStatusUpdateRequest;
 import evm.main.requests.dto.EventRequestStatusUpdateResult;
 import evm.main.requests.dto.ParticipationRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
+import ru.yandex.practicum.common.event.EventInternalDto;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,4 +42,6 @@ public interface EventService {
                                       Integer from, Integer size);
 
     EventFullDto updateAdminEvent(Long eventId, UpdateEventAdminRequest request);
+
+    EventInternalDto getInternalEvent(Long eventId);
 }

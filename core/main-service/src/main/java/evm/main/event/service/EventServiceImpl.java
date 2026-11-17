@@ -31,7 +31,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.yandex.practicum.common.UserDto;
+import ru.yandex.practicum.common.event.EventInternalDto;
+import ru.yandex.practicum.common.user.UserDto;
 
 import java.time.LocalDateTime;
 import java.util.Comparator;
@@ -373,6 +374,19 @@ public class EventServiceImpl implements EventService {
         Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
 
         return EventMapper.toFullDto(saved, getInitiator(saved.getInitiatorId()), getViews(saved), confirmed);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public EventInternalDto getInternalEvent(Long eventId) {
+        Event event = getEventOrThrow(eventId);
+        return EventInternalDto.builder()
+                .id(event.getId())
+                .initiatorId(event.getInitiatorId())
+                .state(event.getState().name())
+                .participantLimit(event.getParticipantLimit())
+                .requestModeration(event.getRequestModeration())
+                .build();
     }
 
 // =========================================================================

@@ -8,7 +8,7 @@ import evm.main.event.dto.NewEventDto;
 import evm.main.event.dto.UserShortDto;
 import evm.main.event.model.Event;
 import evm.main.event.model.EventState;
-import ru.yandex.practicum.common.UserDto;
+import ru.yandex.practicum.common.user.UserDto;
 
 import java.time.LocalDateTime;
 

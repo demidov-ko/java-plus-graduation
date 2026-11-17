@@ -3,7 +3,7 @@ package evm.main;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
-import ru.yandex.practicum.common.UserClient;
+import ru.yandex.practicum.common.user.UserClient;
 
 @SpringBootApplication
 @EnableFeignClients(clients = UserClient.class)

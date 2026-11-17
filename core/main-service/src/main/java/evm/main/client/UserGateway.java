@@ -4,8 +4,8 @@ import evm.main.exceptions.NotFoundException;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import ru.yandex.practicum.common.UserClient;
-import ru.yandex.practicum.common.UserDto;
+import ru.yandex.practicum.common.user.UserClient;
+import ru.yandex.practicum.common.user.UserDto;
 
 import java.util.Collection;
 import java.util.Map;

@@ -1,4 +1,4 @@
-package ru.yandex.practicum.common;
+package ru.yandex.practicum.common.user;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
