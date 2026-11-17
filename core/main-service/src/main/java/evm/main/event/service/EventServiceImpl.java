@@ -2,6 +2,7 @@ package evm.main.event.service;
 
 import evm.main.category.model.Category;
 import evm.main.category.repository.CategoryRepository;
+import evm.main.client.RequestGateway;
 import evm.main.client.UserGateway;
 import evm.main.event.dto.*;
 import evm.main.event.mapper.EventMapper;
@@ -12,13 +13,6 @@ import evm.main.event.repository.EventRepository;
 import evm.main.event.repository.EventSpecification;
 import evm.main.exceptions.ConflictException;
 import evm.main.exceptions.NotFoundException;
-import evm.main.requests.dto.EventRequestStatusUpdateRequest;
-import evm.main.requests.dto.EventRequestStatusUpdateResult;
-import evm.main.requests.dto.ParticipationRequestDto;
-import evm.main.requests.mapper.RequestMapper;
-import evm.main.requests.model.Request;
-import evm.main.requests.model.Status;
-import evm.main.requests.repository.RequestRepositoryJpa;
 import evm.stat.client.StatsClient;
 import evm.stat.dto.HitDto;
 import evm.stat.dto.ViewStatsDto;
@@ -52,9 +46,8 @@ public class EventServiceImpl implements EventService {
 
     private final EventRepository eventRepository;
     private final UserGateway userGateway;
+    private final RequestGateway requestGateway;
     private final CategoryRepository categoryRepository;
-    private final RequestRepositoryJpa requestRepository;
-    private final RequestMapper mapper;
     private final StatsClient statsClient;
 
 // =========================================================================
@@ -129,7 +122,7 @@ public class EventServiceImpl implements EventService {
         sendHit(request);
 
         Long views = getViews(event);
-        Long confirmed = requestRepository.countByEventIdAndStatus(id, Status.CONFIRMED);
+        Long confirmed = requestGateway.getConfirmedCount(id);
 
         return EventMapper.toFullDto(event, getInitiator(event.getInitiatorId()), views, confirmed);
     }
@@ -141,6 +134,7 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional(readOnly = true)
     public List<EventShortDto> getUserEvents(Long userId, Integer from, Integer size) {
+        // Заодно проверяет, что пользователь существует
         UserShortDto initiator = EventMapper.toUserShortDto(userGateway.getUser(userId));
 
         Pageable pageable = PageRequest.of(from / size, size);
@@ -185,7 +179,7 @@ public class EventServiceImpl implements EventService {
         }
 
         Long views = getViews(event);
-        Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
+        Long confirmed = requestGateway.getConfirmedCount(eventId);
 
         return EventMapper.toFullDto(event, EventMapper.toUserShortDto(user), views, confirmed);
     }
@@ -211,125 +205,9 @@ public class EventServiceImpl implements EventService {
         applyUserUpdates(event, dto);
 
         Event saved = eventRepository.save(event);
-        Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
+        Long confirmed = requestGateway.getConfirmedCount(eventId);
 
         return EventMapper.toFullDto(saved, EventMapper.toUserShortDto(user), getViews(saved), confirmed);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ParticipationRequestDto> getEventRequests(Long userId, Long eventId) {
-        checkUserExists(userId);
-        Event event = getEventOrThrow(eventId);
-
-        if (!event.getInitiatorId().equals(userId)) {
-            throw new NotFoundException("Событие с id=" + eventId + " не найдено");
-        }
-
-        return requestRepository.findAllByEventId(eventId).stream()
-                .map(mapper::toDto)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public EventRequestStatusUpdateResult changeRequestStatus(Long userId, Long eventId,
-                                                              EventRequestStatusUpdateRequest dto) {
-        checkUserExists(userId);
-        Event event = getEventOrThrow(eventId);
-
-        // Проверка прав организатора
-        if (!event.getInitiatorId().equals(userId)) {
-            throw new NotFoundException("Событие с id=" + eventId + " не найдено");
-        }
-
-        List<Long> requestedIds = dto.getRequestIds();
-
-        // Получаем заявки только для этого события
-        List<Request> requests = requestRepository.findAllByIdInAndEventId(dto.getRequestIds(), eventId);
-
-        if (requests.size() != requestedIds.size()) {
-            throw new IllegalArgumentException("Обнаружены ID заявок, не принадлежащих данному событию. " +
-                    "Проверьте корректность переданных requestIds.");
-        }
-
-        if (requests.isEmpty()) {
-            throw new NotFoundException("Заявки не найдены для события " + eventId);
-        }
-
-        // Если модерация отключена или лимит = 0 — подтверждение не требуется
-        if (!event.getRequestModeration() || event.getParticipantLimit() == 0) {
-            // Автоматически подтверждаем все заявки
-            requests.forEach(r -> r.setStatus(Status.CONFIRMED));
-            requestRepository.saveAll(requests);
-
-            return EventRequestStatusUpdateResult.builder()
-                    .confirmedRequests(requests.stream()
-                            .map(mapper::toDto)
-                            .collect(Collectors.toList()))
-                    .rejectedRequests(List.of())
-                    .build();
-        }
-
-        Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
-
-        // Лимит уже достигнут — нельзя подтверждать новые заявки
-        if (event.getParticipantLimit() > 0 && confirmed >= event.getParticipantLimit()) {
-            throw new ConflictException("Лимит участников достигнут");
-        }
-
-        // Проверяем что все заявки в статусе PENDING
-        requests.forEach(r -> {
-            if (!Status.PENDING.equals(r.getStatus())) {
-                throw new ConflictException("Заявка с id=" + r.getId() +
-                        " должна находиться в статусе PENDING, текущий статус: " + r.getStatus()
-                );
-            }
-        });
-
-        Status newStatus = Status.valueOf(dto.getStatus());
-
-        List<Request> confirmedList = List.of();
-        List<Request> rejectedList = List.of();
-
-        if (Status.CONFIRMED.equals(newStatus)) {
-            // Подтверждаем заявки пока не достигнем лимита
-            long available = event.getParticipantLimit() - confirmed;
-
-            confirmedList = requests.stream()
-                    .limit(available)
-                    .peek(r -> r.setStatus(Status.CONFIRMED))
-                    .toList();
-
-            // Остальные автоматически отклоняем
-            rejectedList = requests.stream()
-                    .skip(available)
-                    .peek(r -> r.setStatus(Status.REJECTED))
-                    .collect(Collectors.toList());
-
-            // Если лимит исчерпан — отклоняем все ожидающие заявки на это событие
-            if (confirmedList.size() == available) {
-                requestRepository.findAllByEventId(eventId).stream()
-                        .filter(r -> Status.PENDING.equals(r.getStatus()))
-                        .forEach(r -> r.setStatus(Status.REJECTED));
-            }
-        } else {
-            rejectedList = requests.stream()
-                    .peek(r -> r.setStatus(Status.REJECTED))
-                    .collect(Collectors.toList());
-        }
-
-        requestRepository.saveAll(requests);
-
-        List<Request> finalConfirmed = confirmedList;
-        List<Request> finalRejected = rejectedList;
-
-        return EventRequestStatusUpdateResult.builder()
-                .confirmedRequests(finalConfirmed.stream()
-                        .map(mapper::toDto).collect(Collectors.toList()))
-                .rejectedRequests(finalRejected.stream()
-                        .map(mapper::toDto).collect(Collectors.toList()))
-                .build();
     }
 
 // =========================================================================
@@ -371,10 +249,14 @@ public class EventServiceImpl implements EventService {
         applyAdminUpdates(event, dto);
 
         Event saved = eventRepository.save(event);
-        Long confirmed = requestRepository.countByEventIdAndStatus(eventId, Status.CONFIRMED);
+        Long confirmed = requestGateway.getConfirmedCount(eventId);
 
         return EventMapper.toFullDto(saved, getInitiator(saved.getInitiatorId()), getViews(saved), confirmed);
     }
+
+// =========================================================================
+// INTERNAL
+// =========================================================================
 
     @Override
     @Transactional(readOnly = true)
@@ -444,21 +326,11 @@ public class EventServiceImpl implements EventService {
         }
     }
 
-    // Получает количество подтверждённых заявок для списка событий
+    // Количество подтверждённых заявок для списка событий: один запрос в request-service
     // Возвращает Map: eventId → количество заявок
     private Map<Long, Long> getConfirmedRequestsMap(List<Event> events) {
-        if (events.isEmpty()) return Map.of();
-
-        List<Long> eventIds = events.stream()
-                .map(Event::getId)
-                .collect(Collectors.toList());
-
-        // Один запрос к БД вместо N запросов
-        return requestRepository.countConfirmedByEventIds(eventIds).stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0], // event_id
-                        row -> (Long) row[1] // count
-                ));
+        return requestGateway.getConfirmedMap(
+                events.stream().map(Event::getId).collect(Collectors.toList()));
     }
 
     // Инициаторы для списка событий: один запрос в user-service
@@ -575,9 +447,5 @@ public class EventServiceImpl implements EventService {
     private Category getCategoryOrThrow(Long catId) {
         return categoryRepository.findById(catId)
                 .orElseThrow(() -> new NotFoundException("Категория с id=" + catId + " не найдена"));
-    }
-
-    private void checkUserExists(Long userId) {
-        userGateway.getUser(userId);
     }
 }

@@ -1,3 +1,4 @@
+-- Заявки на участие в событии
 CREATE TABLE IF NOT EXISTS participation_requests (
     id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_id     BIGINT      NOT NULL,

@@ -1,11 +1,3 @@
----- Пользователи
---CREATE TABLE IF NOT EXISTS users (
---    id    BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
---    name  VARCHAR(250) NOT NULL,
---    email VARCHAR(255) NOT NULL,
---    CONSTRAINT uq_user_email UNIQUE (email)
---);
-
 -- Категории событий
 CREATE TABLE IF NOT EXISTS categories (
     id   BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -30,16 +22,6 @@ CREATE TABLE IF NOT EXISTS events (
     state              VARCHAR(10)   NOT NULL DEFAULT 'PENDING',
     created_on         TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     published_on       TIMESTAMP WITHOUT TIME ZONE
-);
-
--- Заявки на участие в событии
-CREATE TABLE IF NOT EXISTS participation_requests (
-    id           BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    event_id     BIGINT      NOT NULL REFERENCES events (id),
-    requester_id BIGINT      NOT NULL,
-    status       VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    created      TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    CONSTRAINT uq_request UNIQUE (event_id, requester_id)
 );
 
 -- Подборки событий

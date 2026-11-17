@@ -1,9 +1,6 @@
 package evm.main.event.service;
 
 import evm.main.event.dto.*;
-import evm.main.requests.dto.EventRequestStatusUpdateRequest;
-import evm.main.requests.dto.EventRequestStatusUpdateResult;
-import evm.main.requests.dto.ParticipationRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import ru.yandex.practicum.common.event.EventInternalDto;
 
@@ -29,11 +26,6 @@ public interface EventService {
     EventFullDto getUserEventById(Long userId, Long eventId);
 
     EventFullDto updateUserEvent(Long userId, Long eventId, UpdateEventUserRequest request);
-
-    List<ParticipationRequestDto> getEventRequests(Long userId, Long eventId);
-
-    EventRequestStatusUpdateResult changeRequestStatus(Long userId, Long eventId,
-                                                       EventRequestStatusUpdateRequest request);
 
     // --- Admin ---
     List<EventFullDto> getAdminEvents(List<Long> users, List<String> states,

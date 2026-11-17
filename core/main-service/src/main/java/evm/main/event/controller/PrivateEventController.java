@@ -5,9 +5,6 @@ import evm.main.event.dto.EventShortDto;
 import evm.main.event.dto.NewEventDto;
 import evm.main.event.dto.UpdateEventUserRequest;
 import evm.main.event.service.EventService;
-import evm.main.requests.dto.EventRequestStatusUpdateRequest;
-import evm.main.requests.dto.EventRequestStatusUpdateResult;
-import evm.main.requests.dto.ParticipationRequestDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -78,27 +75,5 @@ public class PrivateEventController {
 
         log.info("PATCH /users/{}/events/{}", userId, eventId);
         return eventService.updateUserEvent(userId, eventId, updateRequest);
-    }
-
-    // Заявки на участие в событии
-    @GetMapping("/{eventId}/requests")
-    public List<ParticipationRequestDto> getEventRequests(
-            @PathVariable Long userId,
-            @PathVariable Long eventId) {
-
-        log.info("GET /users/{}/events/{}/requests", userId, eventId);
-        return eventService.getEventRequests(userId, eventId);
-    }
-
-    // Подтвердить или отклонить заявки
-    // Если лимит исчерпан — все оставшиеся заявки автоматически отклоняются
-    @PatchMapping("/{eventId}/requests")
-    public EventRequestStatusUpdateResult changeRequestStatus(
-            @PathVariable Long userId,
-            @PathVariable Long eventId,
-            @RequestBody EventRequestStatusUpdateRequest updateRequest) {
-
-        log.info("PATCH /users/{}/events/{}/requests", userId, eventId);
-        return eventService.changeRequestStatus(userId, eventId, updateRequest);
     }
 }

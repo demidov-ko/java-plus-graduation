@@ -1,5 +1,6 @@
 package evm.main.compilations.service;
 
+import evm.main.client.RequestGateway;
 import evm.main.client.UserGateway;
 import evm.main.compilations.dto.CompilationDto;
 import evm.main.compilations.dto.NewCompilationDto;
@@ -13,7 +14,6 @@ import evm.main.event.mapper.EventMapper;
 import evm.main.event.model.Event;
 import evm.main.event.repository.EventRepository;
 import evm.main.exceptions.NotFoundException;
-import evm.main.requests.repository.RequestRepositoryJpa;
 import evm.stat.client.StatsClient;
 import evm.stat.dto.ViewStatsDto;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +36,7 @@ public class CompilationServiceImpl implements CompilationService {
 
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
-    private final RequestRepositoryJpa requestRepository;
+    private final RequestGateway requestGateway;
     private final StatsClient statsClient;
     private final UserGateway userGateway;
 
@@ -204,21 +204,8 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     private Map<Long, Long> getConfirmedRequestsMap(List<Event> events) {
-
-        if (events.isEmpty()) {
-            return Map.of();
-        }
-
-        List<Long> ids = events.stream()
-                .map(Event::getId)
-                .toList();
-
-        return requestRepository.countConfirmedByEventIds(ids)
-                .stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> (Long) row[1]
-                ));
+        return requestGateway.getConfirmedMap(
+                events.stream().map(Event::getId).toList());
     }
 
     // Инициаторы всех событий одним запросом в user-service
