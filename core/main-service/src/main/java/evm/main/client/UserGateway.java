@@ -1,6 +1,6 @@
 package evm.main.client;
 
-import evm.main.exceptions.NotFoundException;
+import ru.yandex.practicum.common.exceptions.NotFoundException;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

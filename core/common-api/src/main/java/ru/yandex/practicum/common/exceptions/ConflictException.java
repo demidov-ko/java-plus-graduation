@@ -1,4 +1,4 @@
-package ru.yandex.practicum.requests.exceptions;
+package ru.yandex.practicum.common.exceptions;
 
 public class ConflictException extends RuntimeException {
     public ConflictException(String message) {

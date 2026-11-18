@@ -1,4 +1,4 @@
-package evm.main.exceptions;
+package ru.yandex.practicum.common.exceptions;
 
 public class NotFoundException extends RuntimeException {
     public NotFoundException(String message) {

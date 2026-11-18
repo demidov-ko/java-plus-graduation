@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import ru.yandex.practicum.common.event.EventClient;
 import ru.yandex.practicum.common.event.EventInternalDto;
-import ru.yandex.practicum.requests.exceptions.NotFoundException;
+import ru.yandex.practicum.common.exceptions.NotFoundException;
 
 @Component
 @RequiredArgsConstructor

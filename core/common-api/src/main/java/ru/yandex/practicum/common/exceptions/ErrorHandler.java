@@ -1,4 +1,4 @@
-package evm.main.exceptions;
+package ru.yandex.practicum.common.exceptions;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,19 +26,25 @@ public class ErrorHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleBadRequest(IllegalArgumentException e) {
-        return new ErrorResponse("BAD_REQUEST", "Incorrectly made request.", e.getMessage());
+        return new ErrorResponse("BAD_REQUEST",
+                "Incorrectly made request.",
+                e.getMessage());
     }
 
     @ExceptionHandler(ConflictException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleConflict(ConflictException e) {
-        return new ErrorResponse("CONFLICT", "Integrity constraint has been violated.", e.getMessage());
+        return new ErrorResponse("CONFLICT",
+                "Integrity constraint has been violated.",
+                e.getMessage());
     }
 
     @ExceptionHandler(ValidationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleValidation(ValidationException e) {
-        return new ErrorResponse("BAD_REQUEST", "Incorrectly made request.", e.getMessage());
+        return new ErrorResponse("BAD_REQUEST",
+                "Incorrectly made request.",
+                e.getMessage());
     }
 
     // 400 - невалидные данные запроса
@@ -56,7 +62,9 @@ public class ErrorHandler {
         }
 
         log.warn("Validation error:\n{}", message);
-        return new ErrorResponse("BAD_REQUEST", "Incorrectly made request.", message);
+        return new ErrorResponse("BAD_REQUEST",
+                "Incorrectly made request.",
+                message);
     }
 
 }

@@ -13,7 +13,7 @@ import evm.main.event.dto.UserShortDto;
 import evm.main.event.mapper.EventMapper;
 import evm.main.event.model.Event;
 import evm.main.event.repository.EventRepository;
-import evm.main.exceptions.NotFoundException;
+import ru.yandex.practicum.common.exceptions.NotFoundException;
 import evm.stat.client.StatsClient;
 import evm.stat.dto.ViewStatsDto;
 import lombok.RequiredArgsConstructor;

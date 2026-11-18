@@ -1,4 +1,4 @@
-package ru.yandex.practicum.exceptions;
+package ru.yandex.practicum.common.exceptions;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

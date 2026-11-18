@@ -1,4 +1,4 @@
-package evm.main.exceptions;
+package ru.yandex.practicum.common.exceptions;
 
 public class ValidationException extends RuntimeException {
     public ValidationException(String message) {
