@@ -1,10 +1,13 @@
 package ru.yandex.practicum.user.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.common.comment.CommentClient;
 import ru.yandex.practicum.common.user.UserDto;
 import ru.yandex.practicum.common.exceptions.ConflictException;
 import ru.yandex.practicum.common.exceptions.NotFoundException;
@@ -16,6 +19,7 @@ import ru.yandex.practicum.user.repository.UserRepositoryJpa;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,6 +27,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepositoryJpa userRepositoryJpa;
     private final UserMapper userMapper;
+    private final CommentClient commentClient;
 
     @Override
     @Transactional
@@ -71,15 +76,19 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    //NOT_SUPPORTED нужен, чтобы HTTP-вызов не выполнялся внутри транзакции БД и не держал соединение
     public void delete(Long userId) {
-
-        boolean checkUser = userRepositoryJpa.existsById(userId);
-
-        if (!checkUser) {
+        if (!userRepositoryJpa.existsById(userId)) {
             throw new NotFoundException("Пользователь с id " + userId + " не найден.");
         }
 
         userRepositoryJpa.deleteById(userId);
+        // Пользователь уже удалён и транзакция закрыта. Сбой comment-service не должен ломать удаление
+        try {
+            commentClient.deleteByAuthor(userId);
+        } catch (Exception e) {
+            log.warn("Не удалось удалить комментарии пользователя {}: {}", userId, e.getMessage());
+        }
     }
 }
