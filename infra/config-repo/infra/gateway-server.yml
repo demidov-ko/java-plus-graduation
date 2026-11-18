@@ -69,6 +69,31 @@ spring:
           predicates:
             - Path=/users/*/requests/**,/users/*/events/*/requests
 
+          # -------- Request Service -------
+        - id: comment-read
+          uri: lb://comment-service
+          predicates:
+            - Path=/events/*/comments/**,/admin/comments/**
+            - Method=GET
+          filters:
+            - name: Retry
+              args:
+                retries: 3
+                statuses:
+                  - BAD_GATEWAY
+                  - SERVICE_UNAVAILABLE
+                  - GATEWAY_TIMEOUT
+                methods:
+                  - GET
+                backoff:
+                  firstBackoff: 100ms
+                  maxBackoff: 500ms
+
+        - id: comment-change
+          uri: lb://comment-service
+          predicates:
+            - Path=/users/*/events/*/comments,/users/*/comments/**,/admin/comments/**
+
         # ---------- Admin: зона администратора ----------
         # GET-маршруты с Retry
         - id: admin-read

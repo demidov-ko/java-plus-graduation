@@ -1,6 +1,5 @@
-package ru.yandex.practicum.comment.model;
+package ru.yandex.practicum.comments.model;
 
-import evm.main.event.model.Event;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,9 +31,6 @@ public class Comment {
     @Column(name = "author_id", nullable = false)
     private Long authorId;   // id автора в user-service
 
-    @ToString.Exclude
-    @JoinColumn(name = "event_id", nullable = false)
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Event event;
-
+    @Column(name = "event_id", nullable = false)
+    private Long eventId;    // id события в сервисе событий
 }

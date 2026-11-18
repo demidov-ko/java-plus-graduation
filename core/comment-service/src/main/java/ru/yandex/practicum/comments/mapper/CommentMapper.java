@@ -1,20 +1,19 @@
-package ru.yandex.practicum.comment.mapper;
+package ru.yandex.practicum.comments.mapper;
 
-import evm.main.comment.dto.CommentDto;
-import evm.main.comment.dto.NewCommentDto;
-import evm.main.comment.model.Comment;
-import evm.main.event.model.Event;
+import ru.yandex.practicum.comments.dto.CommentDto;
+import ru.yandex.practicum.comments.dto.NewCommentDto;
+import ru.yandex.practicum.comments.model.Comment;
 
 public class CommentMapper {
 
     private CommentMapper() {
     }
 
-    public static Comment toEntity(NewCommentDto dto, Long authorId, Event event) {
+    public static Comment toEntity(NewCommentDto dto, Long authorId, Long eventId) {
         return Comment.builder()
                 .text(dto.getText())
-                .event(event)
                 .authorId(authorId)
+                .eventId(eventId)
                 .build();
     }
 
@@ -22,7 +21,7 @@ public class CommentMapper {
         return CommentDto.builder()
                 .id(comment.getId())
                 .text(comment.getText().trim())
-                .eventId(comment.getEvent().getId())
+                .eventId(comment.getEventId())
                 .authorId(comment.getAuthorId())
                 .authorName(authorName)
                 .publishedDate(comment.getPublishedDate())

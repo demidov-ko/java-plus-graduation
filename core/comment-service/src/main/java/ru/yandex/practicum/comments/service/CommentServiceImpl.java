@@ -1,20 +1,19 @@
-package ru.yandex.practicum.comment.service;
+package ru.yandex.practicum.comments.service;
 
-import evm.main.client.UserGateway;
-import evm.main.comment.dto.CommentDto;
-import evm.main.comment.dto.NewCommentDto;
-import evm.main.comment.mapper.CommentMapper;
-import evm.main.comment.model.Comment;
-import evm.main.comment.repository.CommentRepository;
-import evm.main.event.model.Event;
-import evm.main.event.model.EventState;
-import evm.main.event.repository.EventRepository;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.comments.client.EventGateway;
+import ru.yandex.practicum.comments.client.UserGateway;
+import ru.yandex.practicum.comments.dto.CommentDto;
+import ru.yandex.practicum.comments.dto.NewCommentDto;
+import ru.yandex.practicum.comments.mapper.CommentMapper;
+import ru.yandex.practicum.comments.model.Comment;
+import ru.yandex.practicum.comments.repository.CommentRepository;
+import ru.yandex.practicum.common.event.EventInternalDto;
 import ru.yandex.practicum.common.exceptions.ConflictException;
 import ru.yandex.practicum.common.exceptions.NotFoundException;
 import ru.yandex.practicum.common.user.UserDto;
@@ -25,28 +24,28 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Service
-@AllArgsConstructor
 @Slf4j
+@Service
+@RequiredArgsConstructor
 public class CommentServiceImpl implements CommentService {
 
     private final CommentRepository commentRepository;
     private final UserGateway userGateway;
-    private final EventRepository eventRepository;
+    private final EventGateway eventGateway;
 
     @Override
     @Transactional
     public CommentDto createComment(Long userId, Long eventId, NewCommentDto dto) {
         UserDto author = userGateway.getUser(userId);
-        Event event = findEventOrRaiseException(eventId);
+        EventInternalDto event = eventGateway.getEvent(eventId);
 
-        if (!EventState.PUBLISHED.equals(event.getState())) {
+        if (!"PUBLISHED".equals(event.getState())) {
             throw new ConflictException("Комментировать можно только опубликованные события");
         }
 
-        Comment c = CommentMapper.toEntity(dto, author.getId(), event);
-        c.setPublishedDate(LocalDateTime.now());
-        Comment saved = commentRepository.save(c);
+        Comment comment = CommentMapper.toEntity(dto, author.getId(), eventId);
+        comment.setPublishedDate(LocalDateTime.now());
+        Comment saved = commentRepository.save(comment);
 
         log.info("Пользователь {} добавил комментарий к событию {}", userId, eventId);
 
@@ -85,7 +84,7 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public void deleteAllCommentsByEvent(Long eventId) {
-        findEventOrRaiseException(eventId);
+        eventGateway.getEvent(eventId);
         commentRepository.deleteAllByEventId(eventId);
         log.info("Комментарии к событию {} удалены", eventId);
     }
@@ -94,16 +93,16 @@ public class CommentServiceImpl implements CommentService {
     @Transactional
     public CommentDto updateComment(Long userId, Long commentId, NewCommentDto dto) {
         UserDto author = userGateway.getUser(userId);
-        Comment c = findCommentOrRaiseException(commentId);
+        Comment comment = findCommentOrRaiseException(commentId);
 
-        if (!c.getAuthorId().equals(userId)) {
+        if (!comment.getAuthorId().equals(userId)) {
             throw new ConflictException("Редактировать можно только свои комментарии");
         }
 
-        c.setText(dto.getText());
-        c.setEditedOn(LocalDateTime.now());
+        comment.setText(dto.getText());
+        comment.setEditedOn(LocalDateTime.now());
 
-        Comment saved = commentRepository.save(c);
+        Comment saved = commentRepository.save(comment);
         log.info("Пользователь {} отредактировал комментарий {}", userId, commentId);
         return CommentMapper.toDto(saved, author.getName());
     }
@@ -111,10 +110,10 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional(readOnly = true)
     public CommentDto getComment(Long eventId, Long commentId) {
-        findEventOrRaiseException(eventId);
+        eventGateway.getEvent(eventId);
         Comment comment = findCommentOrRaiseException(commentId);
 
-        if (!comment.getEvent().getId().equals(eventId)) {
+        if (!comment.getEventId().equals(eventId)) {
             throw new NotFoundException("Комментарий с id=" + commentId + " не найден для события " + eventId);
         }
         return toDtos(List.of(comment)).get(0);
@@ -123,20 +122,27 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional(readOnly = true)
     public List<CommentDto> getAllCommentsByEvent(Long eventId, Integer from, Integer size) {
-        findEventOrRaiseException(eventId);
-        Pageable p = PageRequest.of(from / size, size);
-        return toDtos(commentRepository.findAllByEventIdOrderByPublishedDateDesc(eventId, p));
+        eventGateway.getEvent(eventId);
+        Pageable pageable = PageRequest.of(from / size, size);
+        return toDtos(commentRepository.findAllByEventIdOrderByPublishedDateDesc(eventId, pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CommentDto> getAllCommentsByAuthor(Long authorId, Integer from, Integer size) {
         UserDto author = userGateway.getUser(authorId);
-        Pageable p = PageRequest.of(from / size, size);
-        return commentRepository.findAllByAuthorIdOrderByPublishedDateDesc(authorId, p)
+        Pageable pageable = PageRequest.of(from / size, size);
+        return commentRepository.findAllByAuthorIdOrderByPublishedDateDesc(authorId, pageable)
                 .stream()
                 .map(c -> CommentMapper.toDto(c, author.getName()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void purgeAuthorComments(Long authorId) {
+        commentRepository.deleteAllByAuthorId(authorId);
+        log.info("Комментарии автора {} удалены (внутренний вызов)", authorId);
     }
 
     // Имена авторов для списка комментариев: один запрос в user-service.
@@ -157,10 +163,5 @@ public class CommentServiceImpl implements CommentService {
     private Comment findCommentOrRaiseException(Long commentId) {
         return commentRepository.findById(commentId)
                 .orElseThrow(() -> new NotFoundException("Комментарий с id = " + commentId + " не найден!"));
-    }
-
-    private Event findEventOrRaiseException(Long eventId) {
-        return eventRepository.findById(eventId)
-                .orElseThrow(() -> new NotFoundException("Событие с id = " + eventId + " не найдено!"));
     }
 }

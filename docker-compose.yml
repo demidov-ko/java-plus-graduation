@@ -77,3 +77,12 @@ services:
       - POSTGRES_PASSWORD=request
       - POSTGRES_USER=request
       - POSTGRES_DB=ewm_requests
+
+  comment-db:
+    image: postgres:16.1
+    ports:
+      - "6545:5432"
+    environment:
+      - POSTGRES_PASSWORD=comment
+      - POSTGRES_USER=comment
+      - POSTGRES_DB=ewm_comments

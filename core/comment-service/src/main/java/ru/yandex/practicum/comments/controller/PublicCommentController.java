@@ -1,13 +1,13 @@
-package ru.yandex.practicum.comment.controller;
+package ru.yandex.practicum.comments.controller;
 
-import evm.main.comment.dto.CommentDto;
-import evm.main.comment.service.CommentService;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.comments.dto.CommentDto;
+import ru.yandex.practicum.comments.service.CommentService;
 
 import java.util.List;
 

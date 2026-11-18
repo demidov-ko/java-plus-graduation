@@ -1,8 +1,11 @@
-package ru.yandex.practicum.comment.repository;
+package ru.yandex.practicum.comments.repository;
 
-import evm.main.comment.model.Comment;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import ru.yandex.practicum.comments.model.Comment;
 
 import java.util.List;
 
@@ -12,7 +15,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     List<Comment> findAllByAuthorIdOrderByPublishedDateDesc(Long authorId, Pageable pageable);
 
-    void deleteAllByAuthorId(Long authorId);
+    @Modifying
+    @Query("DELETE FROM Comment c WHERE c.authorId = :authorId")
+    void deleteAllByAuthorId(@Param("authorId") Long authorId);
 
-    void deleteAllByEventId(Long eventId);
+    @Modifying
+    @Query("DELETE FROM Comment c WHERE c.eventId = :eventId")
+    void deleteAllByEventId(@Param("eventId") Long eventId);
 }

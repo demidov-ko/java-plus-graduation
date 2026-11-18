@@ -17,6 +17,7 @@
         <module>user-service</module>
         <module>common-api</module>
         <module>request-service</module>
+        <module>comment-service</module>
     </modules>
 
     <dependencyManagement>

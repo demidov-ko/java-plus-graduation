@@ -1,7 +1,7 @@
-package ru.yandex.practicum.comment.service;
+package ru.yandex.practicum.comments.service;
 
-import evm.main.comment.dto.CommentDto;
-import evm.main.comment.dto.NewCommentDto;
+import ru.yandex.practicum.comments.dto.CommentDto;
+import ru.yandex.practicum.comments.dto.NewCommentDto;
 
 import java.util.List;
 
@@ -24,5 +24,8 @@ public interface CommentService {
     List<CommentDto> getAllCommentsByEvent(Long eventId, Integer from, Integer size);
 
     List<CommentDto> getAllCommentsByAuthor(Long authorId, Integer from, Integer size);
+
+    // Внутренний API: удаление без проверки автора, потому что к этому моменту пользователь уже может быть удалён
+    void purgeAuthorComments(Long authorId);
 
 }
