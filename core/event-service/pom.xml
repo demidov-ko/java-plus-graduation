@@ -9,7 +9,7 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>main-service</artifactId>
+    <artifactId>event-service</artifactId>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -78,17 +78,17 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <mainClass>evm.main.MainServiceApplication</mainClass>
-                </configuration>
+<!--                <configuration>-->
+<!--                    <mainClass>evm.main.EventServiceApplication</mainClass>-->
+<!--                </configuration>-->
 
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>repackage</goal>
-                        </goals>
-                    </execution>
-                </executions>
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <goals>-->
+<!--                            <goal>repackage</goal>-->
+<!--                        </goals>-->
+<!--                    </execution>-->
+<!--                </executions>-->
 
             </plugin>
         </plugins>

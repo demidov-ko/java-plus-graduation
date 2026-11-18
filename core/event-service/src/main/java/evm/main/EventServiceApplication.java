@@ -8,8 +8,8 @@ import ru.yandex.practicum.common.user.UserClient;
 
 @SpringBootApplication
 @EnableFeignClients(clients = {UserClient.class, RequestClient.class})
-public class MainServiceApplication {
+public class EventServiceApplication {
     public static void main(String[] args) {
-        SpringApplication.run(MainServiceApplication.class, args);
+        SpringApplication.run(EventServiceApplication.class, args);
     }
 }

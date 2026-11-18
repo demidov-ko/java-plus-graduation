@@ -97,7 +97,7 @@ spring:
         # ---------- Admin: зона администратора ----------
         # GET-маршруты с Retry
         - id: admin-read
-          uri: lb://main-service
+          uri: lb://event-service
           predicates:
 #            - Path=/admin/users,/admin/events,/admin/categories,/admin/compilations
             - Path=/admin/events,/admin/categories,/admin/compilations
@@ -117,13 +117,13 @@ spring:
                   maxBackoff: 500ms
         # Все остальные (POST/PATCH/DELETE)
         - id: admin-change
-          uri: lb://main-service
+          uri: lb://event-service
           predicates:
             - Path=/admin/**
 
         # ---------- Private: зона авторизованного пользователя ----------
         - id: private-read
-          uri: lb://main-service
+          uri: lb://event-service
           predicates:
 #            - Path=/users/*/events,/users/*/events/*,/users/*/requests
             - Path=/users/*/events,/users/*/events/*
@@ -142,13 +142,13 @@ spring:
                   firstBackoff: 100ms
                   maxBackoff: 500ms
         - id: private-change
-          uri: lb://main-service
+          uri: lb://event-service
           predicates:
             - Path=/users/**
 
         # ---------- Public: публичная зона ----------
         - id: public-read
-          uri: lb://main-service
+          uri: lb://event-service
           predicates:
             - Path=/categories/**,/compilations/**,/events/**
             - Method=GET
