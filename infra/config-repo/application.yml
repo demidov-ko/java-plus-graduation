@@ -20,7 +20,9 @@ logging:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true # нужен, чтобы сервисы регистрировались в Eureka по IP контейнера, а не по имени хоста
 
 resilience4j:
   circuitbreaker:
