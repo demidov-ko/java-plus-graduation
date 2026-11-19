@@ -1,5 +1,7 @@
 package ru.yandex.practicum.common.exceptions;
 
+import feign.FeignException;
+import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -65,6 +67,18 @@ public class ErrorHandler {
         return new ErrorResponse("BAD_REQUEST",
                 "Incorrectly made request.",
                 message);
+    }
+
+    // Зависимый сервис недоступен и подставить значение по умолчанию нельзя
+    // 503 вместо 500
+    @ExceptionHandler({FeignException.class, CallNotPermittedException.class})
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ErrorResponse handleServiceUnavailable(Exception e) {
+//        log.warn("Зависимый сервис недоступен: {}", e.getMessage());
+        log.warn("Зависимый сервис недоступен: {}: {}", e.getClass().getSimpleName(), e.getMessage());
+        return new ErrorResponse("SERVICE_UNAVAILABLE",
+                "Service is temporarily unavailable.",
+                "Зависимый сервис временно недоступен. Повторите запрос позже.");
     }
 
 }
