@@ -5,6 +5,13 @@ spring:
   main:
     banner-mode: off
     log-startup-info: false
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 1000
+            read-timeout: 2000
 
 logging:
   level:
@@ -13,4 +20,48 @@ logging:
 eureka:
   client:
     serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true # нужен, чтобы сервисы регистрировались в Eureka по IP контейнера, а не по имени хоста
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        ignore-exceptions:
+          - ru.yandex.practicum.common.exceptions.NotFoundException
+          - ru.yandex.practicum.common.exceptions.ConflictException
+    instances:
+      user-service:
+        base-config: default
+      request-service:
+        base-config: default
+      event-service:
+        base-config: default
+      comment-service:
+        base-config: default
+  retry:
+    configs:
+      default:
+        max-attempts: 2
+        wait-duration: 200ms
+        ignore-exceptions:
+          - io.github.resilience4j.circuitbreaker.CallNotPermittedException
+          - ru.yandex.practicum.common.exceptions.NotFoundException
+          - ru.yandex.practicum.common.exceptions.ConflictException
+    instances:
+      user-service:
+        base-config: default
+      request-service:
+        base-config: default
+      event-service:
+        base-config: default
+      comment-service:
+        base-config: default
