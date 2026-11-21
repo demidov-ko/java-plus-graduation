@@ -60,6 +60,7 @@ ewm_users  ewm        ewm_requests  ewm_comments    ewm-stats
 - Где данные второстепенны, работает fallback: `initiator = null`, `confirmedRequests = 0`, `authorName = null`.
 - Где fallback недопустим, клиент получает `503` с телом `{"status": "SERVICE_UNAVAILABLE", ...}`.
 - Если недоступна статистика, события отдаются с нулевыми просмотрами.
+- HTTP-вызовы к другим сервисам выполняются вне транзакций БД. Для критичных операций используется `TransactionTemplate`; стандартные методы `JpaRepository` остаются транзакционными по умолчанию.
 
 ## Конфигурация
 

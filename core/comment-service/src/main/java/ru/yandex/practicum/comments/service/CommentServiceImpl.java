@@ -6,6 +6,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ru.yandex.practicum.comments.client.EventGateway;
 import ru.yandex.practicum.comments.client.UserGateway;
 import ru.yandex.practicum.comments.dto.CommentDto;
@@ -32,9 +33,9 @@ public class CommentServiceImpl implements CommentService {
     private final CommentRepository commentRepository;
     private final UserGateway userGateway;
     private final EventGateway eventGateway;
+    private final TransactionTemplate tx;
 
     @Override
-    @Transactional
     public CommentDto createComment(Long userId, Long eventId, NewCommentDto dto) {
         UserDto author = userGateway.getUser(userId);
         EventInternalDto event = eventGateway.getEvent(eventId);
@@ -45,15 +46,13 @@ public class CommentServiceImpl implements CommentService {
 
         Comment comment = CommentMapper.toEntity(dto, author.getId(), eventId);
         comment.setPublishedDate(LocalDateTime.now());
-        Comment saved = commentRepository.save(comment);
+        Comment saved = commentRepository.save(comment);   // короткая tx
 
         log.info("Пользователь {} добавил комментарий к событию {}", userId, eventId);
-
         return CommentMapper.toDto(saved, author.getName());
     }
 
     @Override
-    @Transactional
     public void deleteComment(Long userId, Long commentId) {
         userGateway.getUser(userId);
         Comment comment = findCommentOrRaiseException(commentId);
@@ -66,7 +65,6 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public void deleteCommentById(Long commentId) {
         Comment comment = findCommentOrRaiseException(commentId);
         commentRepository.delete(comment);
@@ -74,7 +72,6 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public void deleteAllCommentsByAuthor(Long authorId) {
         userGateway.getUser(authorId);
         commentRepository.deleteAllByAuthorId(authorId);
@@ -82,7 +79,6 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public void deleteAllCommentsByEvent(Long eventId) {
         eventGateway.getEvent(eventId);
         commentRepository.deleteAllByEventId(eventId);
@@ -90,27 +86,26 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public CommentDto updateComment(Long userId, Long commentId, NewCommentDto dto) {
-        UserDto author = userGateway.getUser(userId);
-        Comment comment = findCommentOrRaiseException(commentId);
+        UserDto author = userGateway.getUser(userId);          // HTTP вне транзакции
+        // открываем транзакцию
+        Comment saved = tx.execute(status -> {      // tx только на работу с БД
+            Comment comment = findCommentOrRaiseException(commentId);
+            if (!comment.getAuthorId().equals(userId)) {
+                throw new ConflictException("Редактировать можно только свои комментарии");
+            }
+            comment.setText(dto.getText());
+            comment.setEditedOn(LocalDateTime.now());
+            return commentRepository.save(comment);
+        });
 
-        if (!comment.getAuthorId().equals(userId)) {
-            throw new ConflictException("Редактировать можно только свои комментарии");
-        }
-
-        comment.setText(dto.getText());
-        comment.setEditedOn(LocalDateTime.now());
-
-        Comment saved = commentRepository.save(comment);
         log.info("Пользователь {} отредактировал комментарий {}", userId, commentId);
         return CommentMapper.toDto(saved, author.getName());
     }
 
     @Override
-    @Transactional(readOnly = true)
     public CommentDto getComment(Long eventId, Long commentId) {
-        eventGateway.getEvent(eventId);
+        checkEventIfAvailable(eventId);
         Comment comment = findCommentOrRaiseException(commentId);
 
         if (!comment.getEventId().equals(eventId)) {
@@ -120,15 +115,13 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CommentDto> getAllCommentsByEvent(Long eventId, Integer from, Integer size) {
-        eventGateway.getEvent(eventId);
+        checkEventIfAvailable(eventId);
         Pageable pageable = PageRequest.of(from / size, size);
         return toDtos(commentRepository.findAllByEventIdOrderByPublishedDateDesc(eventId, pageable));
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CommentDto> getAllCommentsByAuthor(Long authorId, Integer from, Integer size) {
         UserDto author = userGateway.getUser(authorId);
         Pageable pageable = PageRequest.of(from / size, size);
@@ -139,7 +132,6 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    @Transactional
     public void purgeAuthorComments(Long authorId) {
         commentRepository.deleteAllByAuthorId(authorId);
         log.info("Комментарии автора {} удалены (внутренний вызов)", authorId);
@@ -163,5 +155,16 @@ public class CommentServiceImpl implements CommentService {
     private Comment findCommentOrRaiseException(Long commentId) {
         return commentRepository.findById(commentId)
                 .orElseThrow(() -> new NotFoundException("Комментарий с id = " + commentId + " не найден!"));
+    }
+
+    // Чтение не должно падать из-за недоступности event-service: 404 пробрасываем, остальное логируем
+    private void checkEventIfAvailable(Long eventId) {
+        try {
+            eventGateway.getEvent(eventId);
+        } catch (NotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("event-service недоступен, пропускаю проверку события {}: {}", eventId, e.getMessage());
+        }
     }
 }
