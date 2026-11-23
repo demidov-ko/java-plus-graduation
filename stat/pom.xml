@@ -15,5 +15,6 @@
         <module>stat-client</module>
         <module>stat-dto</module>
         <module>stats-server</module>
+        <module>serialization</module>
     </modules>
 </project>
