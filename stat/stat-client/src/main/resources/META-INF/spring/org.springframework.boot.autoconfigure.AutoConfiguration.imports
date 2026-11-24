@@ -1,1 +1,2 @@
 evm.stat.client.config.StatsClientConfig
+evm.stat.client.config.StatsGrpcClientAutoConfiguration

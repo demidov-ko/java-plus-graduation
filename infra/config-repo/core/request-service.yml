@@ -20,3 +20,15 @@ spring:
 stats:
   service:
     id: stats-server
+
+grpc:
+  client:
+    collector:
+      address: 'discovery:///collector'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
+logging:
+  level:
+    evm.stat.client: DEBUG
