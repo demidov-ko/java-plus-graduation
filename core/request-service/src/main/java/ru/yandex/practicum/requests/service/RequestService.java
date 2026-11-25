@@ -26,4 +26,8 @@ public interface RequestService {
     // --- внутренний API ---
     Map<Long, Long> getConfirmedCounts(List<Long> eventIds);
 
+    // --- проверка наличия подтвержденной заявки на участии в событии ---
+    boolean isParticipant(Long userId, Long eventId);
+
+
 }

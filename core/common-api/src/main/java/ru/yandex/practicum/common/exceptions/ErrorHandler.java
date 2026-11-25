@@ -5,6 +5,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -49,6 +50,16 @@ public class ErrorHandler {
                 e.getMessage());
     }
 
+    // Отсутствует обязательный заголовок (например, X-EWM-USER-ID) - ошибка запроса, не сервера
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMissingHeader(MissingRequestHeaderException e) {
+        log.warn("Missing header: {}", e.getMessage());
+        return new ErrorResponse("BAD_REQUEST",
+                "Incorrectly made request.",
+                e.getMessage());
+    }
+
     // 400 - невалидные данные запроса
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -74,7 +85,6 @@ public class ErrorHandler {
     @ExceptionHandler({FeignException.class, CallNotPermittedException.class})
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public ErrorResponse handleServiceUnavailable(Exception e) {
-//        log.warn("Зависимый сервис недоступен: {}", e.getMessage());
         log.warn("Зависимый сервис недоступен: {}: {}", e.getClass().getSimpleName(), e.getMessage());
         return new ErrorResponse("SERVICE_UNAVAILABLE",
                 "Service is temporarily unavailable.",

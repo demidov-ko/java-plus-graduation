@@ -6,10 +6,12 @@ import ru.practicum.ewm.stats.avro.ActionTypeAvro;
 import ru.practicum.ewm.stats.avro.EventSimilarityAvro;
 import ru.practicum.ewm.stats.avro.UserActionAvro;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -54,41 +56,41 @@ public class SimilarityCalculator {
         log.debug("После обновления: eventSums={}, пользователь {} на мероприятии {} = {}",
                 eventSums, userId, eventId, newWeight);
 
+        // история этого пользователя: события, с которыми он уже взаимодействовал
+        TreeSet<Long> userHistory = userWeights.entrySet().stream()
+                .filter(e -> e.getValue().containsKey(userId))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toCollection(TreeSet::new));
+
         // обновляем S_min с мероприятиями, с которыми взаимодействовал этот же пользователь
-        for (Map.Entry<Long, Map<Long, Double>> entry : userWeights.entrySet()) {
-            long other = entry.getKey();
-            Double otherWeight = entry.getValue().get(userId);
-            if (other == eventId || otherWeight == null) {
-                log.debug("Пара ({},{}) пропущена: otherWeight = null", eventId, other);
+        for (long other : userHistory) {
+            if (other == eventId) {
                 continue;
             }
+            double otherWeight = userWeights.get(other).get(userId);
             double oldMin = getMin(eventId, other);
             double delta = Math.min(newWeight, otherWeight) - Math.min(oldWeight, otherWeight);
             if (delta != 0) {
                 log.debug("Пара ({},{}): oldMin={}, delta={}, новое значение = {}",
-                        eventId, other, oldMin, delta, getMin(eventId, other) + delta);
-                putMin(eventId, other, getMin(eventId, other) + delta);
+                        eventId, other, oldMin, delta, oldMin + delta);
+                putMin(eventId, other, oldMin + delta);
             }
         }
 
-        // S_A изменилась, поэтому пересчитываем сходство со всеми, у кого S_min > 0
+        // пересчитываем сходство только с событиями из истории ЭТОГО пользователя
         List<EventSimilarityAvro> result = new ArrayList<>();
         double sqrtA = Math.sqrt(eventSums.get(eventId));
-        for (Map.Entry<Long, Double> entry : eventSums.entrySet()) {
-            long other = entry.getKey();
-            double min = getMin(eventId, other);
-            if (other == eventId || min <= 0) {
-                if (min == 0) {
-                    log.debug("Пара ({},{}) пропущена: S_min = 0", eventId, other);
-                }
+        for (long other : userHistory) {
+            if (other == eventId) {
                 continue;
             }
-            double score = min / (sqrtA * Math.sqrt(entry.getValue()));
+            double min = getMin(eventId, other);
+            double score = min / (sqrtA * Math.sqrt(eventSums.get(other)));
             result.add(EventSimilarityAvro.newBuilder()
                     .setEventA(Math.min(eventId, other))
                     .setEventB(Math.max(eventId, other))
                     .setScore(score)
-                    .setTimestamp(action.getTimestamp())
+                    .setTimestamp(Instant.now())
                     .build());
         }
 

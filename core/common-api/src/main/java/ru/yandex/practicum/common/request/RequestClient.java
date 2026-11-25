@@ -13,4 +13,9 @@ public interface RequestClient {
     // eventId -> число подтверждённых заявок. События без таких заявок в ответе отсутствуют
     @GetMapping("/confirmed")
     Map<Long, Long> getConfirmedCounts(@RequestParam("eventIds") List<Long> eventIds);
+
+    // есть ли у пользователя подтверждённая заявка на событие (для проверки лайков)
+    @GetMapping("/participation")
+    boolean isParticipant(@RequestParam("userId") Long userId, @RequestParam("eventId") Long eventId);
+
 }

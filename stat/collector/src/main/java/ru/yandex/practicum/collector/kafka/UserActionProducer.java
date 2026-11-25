@@ -13,13 +13,13 @@ import ru.practicum.ewm.stats.avro.UserActionAvro;
 @RequiredArgsConstructor
 public class UserActionProducer {
 
-    private final KafkaTemplate<String, SpecificRecordBase> kafkaTemplate;
+    private final KafkaTemplate<Long, SpecificRecordBase> kafkaTemplate;
 
     @Value("${collector.topic.user-actions}")
     private String topic;
 
     public void send(UserActionAvro action) {
-        kafkaTemplate.send(topic, String.valueOf(action.getEventId()), action);
+        kafkaTemplate.send(topic, action.getUserId(), action);
         log.info("В топик {} отправлено действие: {}", topic, action);
     }
 }

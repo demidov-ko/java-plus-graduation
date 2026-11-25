@@ -3,12 +3,13 @@ package evm.main.event.controller;
 import evm.main.event.dto.EventFullDto;
 import evm.main.event.dto.EventShortDto;
 import evm.main.event.service.EventService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,7 +18,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 // Публичный API — доступен всем без авторизации
-// Каждый запрос фиксируется в сервисе статистики
 @Slf4j
 @RestController
 @RequestMapping("/events")
@@ -46,24 +46,40 @@ public class PublicEventController {
             // Сортировка: EVENT_DATE или VIEWS
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "0") Integer from,
-            @RequestParam(defaultValue = "10") Integer size,
-            // HttpServletRequest нужен, чтобы получить ip и uri для статистики
-            HttpServletRequest request) {
+            @RequestParam(defaultValue = "10") Integer size) {
 
         log.info("GET /events — text={}, categories={}, paid={}, sort={}",
                 text, categories, paid, sort);
 
         return eventService.getPublicEvents(
                 text, categories, paid, rangeStart, rangeEnd,
-                onlyAvailable, sort, from, size, request);
+                onlyAvailable, sort, from, size);
+    }
+
+    // Рекомендации для пользователя. Литеральный путь приоритетнее /events/{id}
+    @GetMapping("/recommendations")
+    public List<EventShortDto> getRecommendations(
+            @RequestHeader("X-EWM-USER-ID") long userId,
+            @RequestParam(defaultValue = "10") Integer maxResults) {
+
+        log.info("GET /events/recommendations — userId={}", userId);
+        return eventService.getRecommendations(userId, maxResults);
     }
 
     // Подробная информация об опубликованном событии.
+    // Каждый просмотр фиксируется как действие пользователя
     @GetMapping("/{id}")
     public EventFullDto getEvent(@PathVariable Long id,
-                                 HttpServletRequest request) {
-        log.info("GET /events/{}", id);
+                                 @RequestHeader("X-EWM-USER-ID") long userId) {
+        log.info("GET /events/{} — userId={}", id, userId);
+        return eventService.getPublicEventById(id, userId);
+    }
 
-        return eventService.getPublicEventById(id, request);
+    // Лайк мероприятия (только посещённые)
+    @PutMapping("/{eventId}/like")
+    public void likeEvent(@PathVariable Long eventId,
+                          @RequestHeader("X-EWM-USER-ID") long userId) {
+        log.info("PUT /events/{}/like — userId={}", eventId, userId);
+        eventService.likeEvent(userId, eventId);
     }
 }

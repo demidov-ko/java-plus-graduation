@@ -34,4 +34,7 @@ public interface RequestRepositoryJpa extends JpaRepository<Request, Long> {
             "WHERE r.id IN :ids " +
             "AND r.eventId = :eventId")
     List<Request> findAllByIdInAndEventId(@Param("ids") List<Long> ids, @Param("eventId") Long eventId);
+
+    boolean existsByEventIdAndRequesterIdAndStatus(Long eventId, Long requesterId, Status status);
+
 }

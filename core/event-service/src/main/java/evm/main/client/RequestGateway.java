@@ -36,6 +36,14 @@ public class RequestGateway {
         return requestClient.getConfirmedCounts(List.of(eventId)).getOrDefault(eventId, 0L);
     }
 
+    // Без fallback: лайк нельзя проводить при недоступном request-service,
+    // пользователь должен увидеть ошибку, а не ложное «не участник»
+    @Retry(name = "request-service")
+    @CircuitBreaker(name = "request-service")
+    public boolean isParticipant(Long userId, Long eventId) {
+        return requestClient.isParticipant(userId, eventId);
+    }
+
     public Map<Long, Long> confirmedMapFallback(Collection<Long> eventIds, Throwable t) {
         log.warn("request-service недоступен ({}): confirmedRequests = 0", t.getClass().getSimpleName());
         return Map.of();

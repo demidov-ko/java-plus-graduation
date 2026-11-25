@@ -22,4 +22,10 @@ public class InternalRequestController {
     public Map<Long, Long> getConfirmedCounts(@RequestParam(required = false) List<Long> eventIds) {
         return service.getConfirmedCounts(eventIds);
     }
+
+    // есть ли у пользователя подтверждённая заявка на событие (для лайков в event-service)
+    @GetMapping("/participation")
+    public boolean isParticipant(@RequestParam Long userId, @RequestParam Long eventId) {
+        return service.isParticipant(userId, eventId);
+    }
 }

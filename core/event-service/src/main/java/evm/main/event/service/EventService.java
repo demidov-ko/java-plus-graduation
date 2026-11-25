@@ -1,7 +1,6 @@
 package evm.main.event.service;
 
 import evm.main.event.dto.*;
-import jakarta.servlet.http.HttpServletRequest;
 import ru.yandex.practicum.common.event.EventInternalDto;
 
 import java.time.LocalDateTime;
@@ -13,10 +12,9 @@ public interface EventService {
     List<EventShortDto> getPublicEvents(String text, List<Long> categories, Boolean paid,
                                         LocalDateTime rangeStart, LocalDateTime rangeEnd,
                                         Boolean onlyAvailable, String sort,
-                                        Integer from, Integer size,
-                                        HttpServletRequest request);
+                                        Integer from, Integer size);
 
-    EventFullDto getPublicEventById(Long id, HttpServletRequest request);
+    EventFullDto getPublicEventById(Long id, Long userId);
 
     // --- Private ---
     List<EventShortDto> getUserEvents(Long userId, Integer from, Integer size);
@@ -36,4 +34,8 @@ public interface EventService {
     EventFullDto updateAdminEvent(Long eventId, UpdateEventAdminRequest request);
 
     EventInternalDto getInternalEvent(Long eventId);
+
+    List<EventShortDto> getRecommendations(Long userId, Integer maxResults);
+
+    void likeEvent(Long userId, Long eventId);
 }

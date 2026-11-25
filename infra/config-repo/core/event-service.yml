@@ -17,10 +17,6 @@ spring:
     init:
       mode: always
 
-stats:
-  service:
-    id: stats-server
-
 grpc:
   client:
     collector:
