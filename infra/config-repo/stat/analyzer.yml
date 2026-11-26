@@ -28,7 +28,10 @@ analyzer:
     user-actions: stats.user-actions.v1
     events-similarity: stats.events-similarity.v1
 
+
 eureka:
   client:
     registry-fetch-interval-seconds: 5
     instance-info-replication-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
