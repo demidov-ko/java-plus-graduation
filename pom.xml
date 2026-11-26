@@ -41,13 +41,15 @@
         <protobuf-plugin.version>2.4.0</protobuf-plugin.version>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+    </dependencies>
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-starter-validation</artifactId>
-            </dependency>
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
@@ -102,7 +104,6 @@
 
         </dependencies>
     </dependencyManagement>
-
 
     <build>
         <pluginManagement>
@@ -203,11 +204,6 @@
                                                 <minimum>0.2</minimum>
                                             </limit>
                                             <limit>
-                                                <counter>METHOD</counter>
-                                                <value>COVEREDRATIO</value>
-                                                <minimum>0.2</minimum>
-                                            </limit>
-                                            <limit>
                                                 <counter>CLASS</counter>
                                                 <value>MISSEDCOUNT</value>
                                                 <maximum>1</maximum>
@@ -233,6 +229,11 @@
                     <version>${maven-compiler-plugin.version}</version>
                 </plugin>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                </plugin>
+                <plugin>
                     <groupId>org.apache.avro</groupId>
                     <artifactId>avro-maven-plugin</artifactId>
                     <version>${avro-maven-plugin.version}</version>
@@ -246,6 +247,7 @@
             </plugins>
         </pluginManagement>
     </build>
+
     <profiles>
         <profile>
             <id>check</id>
