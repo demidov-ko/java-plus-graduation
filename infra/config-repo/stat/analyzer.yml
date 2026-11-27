@@ -27,6 +27,8 @@ analyzer:
   topic:
     user-actions: stats.user-actions.v1
     events-similarity: stats.events-similarity.v1
+  recommendations:
+    neighbors: 5
 
 
 eureka:

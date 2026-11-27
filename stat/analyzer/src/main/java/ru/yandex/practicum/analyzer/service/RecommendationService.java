@@ -1,6 +1,7 @@
 package ru.yandex.practicum.analyzer.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,8 @@ import java.util.stream.Collectors;
 public class RecommendationService {
 
     // сколько ближайших соседей учитываем при предсказании оценки
-    private static final int NEIGHBORS = 5;
+    @Value("${analyzer.recommendations.neighbors:5}")
+    private int neighbors;
 
     private final UserInteractionRepository interactionRepository;
     private final EventSimilarityRepository similarityRepository;
@@ -38,19 +40,22 @@ public class RecommendationService {
                 .map(UserInteraction::getEventId)
                 .collect(Collectors.toSet());
 
-        List<RecommendedEventProto> result = similarityRepository.findAllByEvents(List.of(eventId)).stream()
+        // пустая коллекция в NOT IN может дать невалидный SQL,
+        // если просмотренных мероприятий нет, подставляем список из одного элемента id,
+        // который заведомо не существует в таблице
+        Collection<Long> excluded = seen.isEmpty() ? List.of(-1L) : seen;
+
+        List<RecommendedEventProto> result = similarityRepository
+                .findTopSimilar(eventId, excluded, PageRequest.of(0, maxResults)).stream()
                 .map(s -> new Scored(s.getEventA().equals(eventId) ? s.getEventB() : s.getEventA(), s.getScore()))
-                .filter(c -> !seen.contains(c.eventId()))
-                .sorted(Comparator.comparingDouble(Scored::score).reversed())
-                .limit(maxResults)
                 .map(this::toProto)
                 .toList();
 
         log.info("Найдено {} похожих мероприятий для eventId={} (у пользователя просмотрено {} мероприятий)",
                 result.size(), eventId, seen.size());
-        result.forEach(r -> log.info("  → eventId={}, score={}", r.getEventId(), r.getScore()));
         return result;
     }
+
 
     // Рекомендации для пользователя на основе предсказанной оценки
     public List<RecommendedEventProto> getRecommendationsForUser(long userId, int maxResults) {
@@ -144,7 +149,7 @@ public class RecommendationService {
     private double predict(List<Scored> candidateNeighbors, Map<Long, Double> ratings) {
         List<Scored> nearest = candidateNeighbors.stream()
                 .sorted(Comparator.comparingDouble(Scored::score).reversed())
-                .limit(NEIGHBORS)
+                .limit(neighbors)
                 .toList();
 
         log.debug("Предсказание по соседям: {}", nearest);
