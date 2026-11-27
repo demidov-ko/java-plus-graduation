@@ -14,15 +14,14 @@ import evm.main.event.mapper.EventMapper;
 import evm.main.event.model.Event;
 import evm.main.event.repository.EventRepository;
 import ru.yandex.practicum.common.exceptions.NotFoundException;
-import evm.stat.client.StatsClient;
-import evm.stat.dto.ViewStatsDto;
+import evm.stat.client.AnalyzerClient;
+import ru.practicum.ewm.stats.proto.RecommendedEventProto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -37,7 +36,7 @@ public class CompilationServiceImpl implements CompilationService {
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
     private final RequestGateway requestGateway;
-    private final StatsClient statsClient;
+    private final AnalyzerClient analyzerClient;
     private final UserGateway userGateway;
 
     @Override
@@ -133,7 +132,7 @@ public class CompilationServiceImpl implements CompilationService {
     }
 
     // Собирает DTO сразу для списка подборок: события всех подборок обрабатываются вместе,
-    // поэтому на любой список уходит по одному запросу в статистику, в БД заявок и в user-service
+    // поэтому на любой список уходит по одному запросу в Analyzer, в БД заявок и в user-service
     private List<CompilationDto> buildCompilationDtos(List<Compilation> compilations) {
 
         // Все события всех подборок без дублей (одно событие может быть в нескольких подборках)
@@ -142,7 +141,7 @@ public class CompilationServiceImpl implements CompilationService {
                 c.getEvents().forEach(e -> eventsById.putIfAbsent(e.getId(), e)));
         List<Event> events = new ArrayList<>(eventsById.values());
 
-        Map<Long, Long> viewsMap = getViewsMap(events);
+        Map<Long, Double> ratingsMap = getRatingsMap(events);
         Map<Long, Long> confirmedMap = getConfirmedRequestsMap(events);
         Map<Long, UserShortDto> initiatorsMap = getInitiatorsMap(events);
 
@@ -152,7 +151,7 @@ public class CompilationServiceImpl implements CompilationService {
                         event -> EventMapper.toShortDto(
                                 event,
                                 initiatorsMap.get(event.getInitiatorId()),
-                                viewsMap.getOrDefault(event.getId(), 0L),
+                                ratingsMap.getOrDefault(event.getId(), 0.0),
                                 confirmedMap.getOrDefault(event.getId(), 0L))));
 
         return compilations.stream()
@@ -164,43 +163,16 @@ public class CompilationServiceImpl implements CompilationService {
                 .toList();
     }
 
-    private Map<Long, Long> getViewsMap(List<Event> events) {
-
+    // Рейтинги для списка событий одним запросом. Если Analyzer недоступен, будут нули
+    private Map<Long, Double> getRatingsMap(List<Event> events) {
         if (events.isEmpty()) {
             return Map.of();
         }
-
-        try {
-
-            List<String> uris = events.stream()
-                    .map(e -> "/events/" + e.getId())
-                    .toList();
-
-            LocalDateTime earliest = events.stream()
-                    .map(Event::getCreatedOn)
-                    .min(LocalDateTime::compareTo)
-                    .orElse(LocalDateTime.now().minusYears(5));
-
-            List<ViewStatsDto> stats =
-                    statsClient.getStats(
-                            earliest,
-                            LocalDateTime.now(),
-                            uris,
-                            true);
-
-            return stats.stream()
-                    .collect(Collectors.toMap(
-                            s -> Long.parseLong(
-                                    s.getUri().replace("/events/", "")),
-                            ViewStatsDto::getHits));
-
-        } catch (Exception e) {
-
-            log.warn("Не удалось получить статистику: {}",
-                    e.getMessage());
-
-            return Map.of();
-        }
+        List<Long> ids = events.stream().map(Event::getId).toList();
+        return analyzerClient.getInteractionsCount(ids).stream()
+                .collect(Collectors.toMap(
+                        RecommendedEventProto::getEventId,
+                        RecommendedEventProto::getScore));
     }
 
     private Map<Long, Long> getConfirmedRequestsMap(List<Event> events) {

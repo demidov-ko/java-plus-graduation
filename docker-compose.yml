@@ -1,5 +1,3 @@
-x-java-opts: &java-opts "JAVA_OPTS=-Xms64m -Xmx256m -XX:+UseSerialGC -XX:TieredStopAtLevel=1"
-
 # Общий healthcheck для всех БД
 x-db-healthcheck: &db-healthcheck
   test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
@@ -28,7 +26,6 @@ services:
       discovery-server:
         condition: service_healthy
     environment:
-      - *java-opts
       - SERVER_PORT=8888
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - CONFIG_REPO_PATH=/config-repo
@@ -50,24 +47,64 @@ services:
       config-server:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
     restart: on-failure
 
   # ---------- Сервисы ----------
-  stat-server:
-    build: stat/stats-server
-    image: stats-server
+
+
+  collector:
+    build: stat/collector
+    image: collector
+    ports:
+      - "50051:50051"
     depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
       config-server:
         condition: service_healthy
-      stats-db:
+    environment:
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - GRPC_SERVER_PORT=50051
+    restart: on-failure
+
+  aggregator:
+    build: stat/aggregator
+    image: aggregator
+    ports:
+      - "9099:8080"
+    depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-server:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
-      - DB_URL=jdbc:postgresql://stats-db:5432/ewm-stats
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - GRPC_SERVER_PORT=8080
+      - SERVER_PORT=8081
     restart: on-failure
+
+  analyzer:
+    build: stat/analyzer
+    image: analyzer
+    ports:
+      - "9100:8080"
+    depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_healthy
+      analyzer-db:
+        condition: service_healthy
+    environment:
+      - EUREKA_URL=http://discovery-server:8761/eureka/
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:29092
+      - DB_URL=jdbc:postgresql://analyzer-db:5432/ewm_analyzer
+      - GRPC_SERVER_PORT=8080
+    restart: on-failure
+
 
   user-service:
     build: core/user-service
@@ -78,7 +115,6 @@ services:
       user-db:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_URL=jdbc:postgresql://user-db:5432/ewm_users
     restart: on-failure
@@ -92,7 +128,6 @@ services:
       request-db:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_URL=jdbc:postgresql://request-db:5432/ewm_requests
     restart: on-failure
@@ -106,7 +141,6 @@ services:
       ewm-db:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_URL=jdbc:postgresql://ewm-db:5432/ewm
     restart: on-failure
@@ -120,22 +154,54 @@ services:
       comment-db:
         condition: service_healthy
     environment:
-      - *java-opts
       - EUREKA_URL=http://discovery-server:8761/eureka/
       - DB_URL=jdbc:postgresql://comment-db:5432/ewm_comments
     restart: on-failure
 
-  # ---------- Базы данных ----------
-  stats-db:
-    image: postgres:16.1
-    container_name: postgres-ewm-stat-db
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: kafka
+    hostname: kafka
     ports:
-      - "6541:5432"
+      - "9092:9092"
     environment:
-      - POSTGRES_PASSWORD=stat
-      - POSTGRES_USER=stat
-      - POSTGRES_DB=ewm-stats
-    healthcheck: *db-healthcheck
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/kafka/29092' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  kafka-init-topics:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: kafka-init-topics
+    depends_on:
+      kafka:
+        condition: service_healthy
+    init: true
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      "
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --topic stats.user-actions.v1 --partitions 1 --replication-factor 1
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --topic stats.events-similarity.v1 --partitions 1 --replication-factor 1
+      kafka-topics --list --bootstrap-server kafka:29092
+      "    
+
+  # ---------- Базы данных ----------
+
 
   ewm-db:
     image: postgres:16.1
@@ -176,4 +242,14 @@ services:
       - POSTGRES_PASSWORD=comment
       - POSTGRES_USER=comment
       - POSTGRES_DB=ewm_comments
+    healthcheck: *db-healthcheck
+
+  analyzer-db:
+    image: postgres:16.1
+    ports:
+      - "6546:5432"
+    environment:
+      - POSTGRES_PASSWORD=analyzer
+      - POSTGRES_USER=analyzer
+      - POSTGRES_DB=ewm_analyzer
     healthcheck: *db-healthcheck

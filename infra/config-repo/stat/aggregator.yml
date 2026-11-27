@@ -1,0 +1,29 @@
+server:
+  port: 0
+grpc:
+  server:
+    port: ${GRPC_SERVER_PORT:0}
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      # состояние хранится в памяти, поэтому при каждом старте читаем топик с начала
+      group-id: aggregator-${random.uuid}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.LongDeserializer
+      value-deserializer: ru.practicum.ewm.stats.serialization.UserActionDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: ru.practicum.ewm.stats.serialization.AvroSerializer
+
+aggregator:
+  topic:
+    user-actions: stats.user-actions.v1
+    events-similarity: stats.events-similarity.v1
+
+
+eureka:
+  client:
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true

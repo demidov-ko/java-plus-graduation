@@ -2,7 +2,9 @@ package ru.yandex.practicum.requests.service;
 
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import ru.practicum.ewm.stats.proto.ActionTypeProto;
 import ru.yandex.practicum.common.event.EventInternalDto;
 import ru.yandex.practicum.requests.client.EventGateway;
 import ru.yandex.practicum.requests.client.UserGateway;
@@ -15,6 +17,7 @@ import ru.yandex.practicum.requests.mapper.RequestMapper;
 import ru.yandex.practicum.requests.model.Request;
 import ru.yandex.practicum.requests.model.Status;
 import ru.yandex.practicum.requests.repository.RequestRepositoryJpa;
+import evm.stat.client.CollectorClient;
 
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +34,7 @@ public class RequestServiceImpl implements RequestService {
     private final EventGateway eventGateway;
     private final RequestRepositoryJpa requestRepository;
     private final RequestMapper mapper;
+    private final CollectorClient collectorClient;   // фиксация действий для рекомендаций
 
     @Override
     public List<ParticipationRequestDto> findById(Long userId) {
@@ -51,7 +55,8 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    // HTTP/gRPC-вызовы не должны выполняться внутри транзакции БД
     public ParticipationRequestDto save(Long userId, Long eventId) {
 
         userGateway.getUser(userId);
@@ -99,9 +104,12 @@ public class RequestServiceImpl implements RequestService {
 
         Request request = mapper.mapToRequest(userId, eventId);
         request.setStatus(status);
+        Request saved = requestRepository.save(request);
 
-        return mapper.toDto(requestRepository.save(request));
+        // регистрация на мероприятие: фиксируем в рекомендательной системе
+        collectorClient.sendUserAction(userId, eventId, ActionTypeProto.ACTION_REGISTER);
 
+        return mapper.toDto(saved);
     }
 
     @Override
@@ -237,6 +245,12 @@ public class RequestServiceImpl implements RequestService {
                 .rejectedRequests(finalRejected.stream()
                         .map(mapper::toDto).collect(Collectors.toList()))
                 .build();
+    }
+
+    @Override
+    public boolean isParticipant(Long userId, Long eventId) {
+        // участник = есть подтверждённая заявка
+        return requestRepository.existsByEventIdAndRequesterIdAndStatus(eventId, userId, Status.CONFIRMED);
     }
 
     @Override
